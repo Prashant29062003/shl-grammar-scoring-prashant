@@ -1,92 +1,121 @@
-# **Grammar Scoring Engine (HF Inference)**
+# Grammar Scoring Engine
 
-A FastAPI-based backend that performs:
-✔ Automatic Speech Recognition (ASR) using **Whisper**
-✔ Grammar correction using **Grammar Error Corrector v1**
-✔ Grammar scoring using **WER (Word Error Rate)**
-✔ Returns corrected text + score out of 100
-✔ Fully local HuggingFace inference
+**Voice → Text → Grammar Correction → Score**
+
+This project implements an end-to-end AI pipeline that accepts a user’s audio file, converts it into text using an ASR (speech-to-text) model, corrects grammar using an NLP model, and computes grammar score using WER (Word Error Rate). The pipeline is hosted as a FastAPI backend.
 
 ---
 
-## 🚀 **Features**
-
-* Upload an audio file (WAV, MP3, M4A, FLAC, OGG)
-* Convert audio → text using Whisper (`openai/whisper-small`)
-* Correct the transcription using grammar correction (`prithivida/grammar_error_correcter_v1`)
-* Compute WER between ASR text and corrected text
-* Produce a final grammar score (0–100)
-* Debug endpoint included to validate environment + NumPy availability
-
----
-
-## 🧩 **Project Structure**
+## 1. Project Structure
 
 ```
-shl-grammar-scoring/
+project/
 │
 ├── app/
-│   ├── main.py
-│   ├── audio.py
-│   ├── config.py
-│   ├── transcriber.py
-│   ├── grammar.py
-│   ├── scoring.py
-│   └── __init__.py
+│   ├── __init__.py
+│   ├── audio.py              # Read audio bytes
+│   ├── config.py             # Model configuration (ASR + Grammar)
+│   ├── grammar.py            # Grammar correction logic
+│   ├── main.py               # FastAPI server
+│   ├── scoring.py            # WER + Grammar scoring logic
+│   └── transcriber.py        # Speech-to-text processing
+│
+├── data/
+│   ├── kaggle_audio/         # Audio samples from Kaggle dataset
+│   └── scored_results.csv    # Output file for batch processing
 │
 ├── scripts/
-│   └── test_api.py
+│   ├── batch_process.py      # Batch scoring multiple audio files
+│   └── test_api.py           # Local API testing script
 │
-└── README.md
+├── .env                      # Optional env variables
+├── .gitignore
+├── PRD.md                    # Product Requirements Document
+├── README.md
+└── requirements.txt
 ```
 
 ---
 
-## 🔧 **Installation**
+## 2. Features
 
-### 1️⃣ Create virtual environment
+* Upload audio file and receive:
 
-```sh
+  * Speech-to-text transcription
+  * Corrected grammar text
+  * Grammar score (0–100)
+  * WER value
+* Batch process entire Kaggle dataset
+* REST API via FastAPI
+* Hugging Face Transformer models
+* Simple, modular Python architecture
+
+---
+
+## 3. Installation
+
+### Step 1 — Create virtual environment
+
+```bash
 python -m venv .venv
 ```
 
-### 2️⃣ Activate environment
+Activate:
 
-**Windows**
+Windows:
 
-```sh
+```bash
 .venv\Scripts\activate
 ```
 
-### 3️⃣ Install dependencies
+Mac/Linux:
 
-```sh
+```bash
+source .venv/bin/activate
+```
+
+### Step 2 — Install requirements
+
+```bash
+pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-### 4️⃣ Ensure NumPy is installed correctly
+If Whisper requires PyTorch:
 
-(Important for Whisper)
-
-```sh
-pip install --upgrade --force-reinstall numpy --only-binary=:all:
+```bash
+pip install torch --index-url https://download.pytorch.org/whl/cu121
 ```
 
 ---
 
-## ▶️ **Run FastAPI Server**
+## 4. Configure Models
 
-```sh
+`app/config.py`:
+
+```python
+HF_ASR_MODEL = "openai/whisper-small"
+HF_GRAMMAR_MODEL = "prithivida/grammar_error_correcter_v1"
+MAX_CHARS = 500
+```
+
+You may update the ASR model if needed.
+
+---
+
+## 5. Running the API Server
+
+Start FastAPI:
+
+```bash
 uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-Server starts at:
+---
 
-```
-http://127.0.0.1:8000
-```
+## 6. API Documentation (Swagger)
 
-Interactive API docs:
+Available automatically at:
 
 ```
 http://127.0.0.1:8000/docs
@@ -94,19 +123,9 @@ http://127.0.0.1:8000/docs
 
 ---
 
-## 🧪 **Test API (Python script)**
+## 7. Endpoints
 
-Example request:
-
-```sh
-python scripts/test_api.py
-```
-
----
-
-## 🛠 **API Endpoints**
-
-### **1. Health Check**
+### Health Check
 
 ```
 GET /health
@@ -115,100 +134,117 @@ GET /health
 Response:
 
 ```json
-{ "status": "ok" }
+{"status": "ok"}
 ```
 
----
-
-### **2. Debug Environment**
-
-(Checks Python path + NumPy availability)
-
-```
-GET /debug
-```
-
-Example response:
-
-```json
-{
-  "python": "D:\\shl-grammar-scoring\\.venv\\Scripts\\python.exe",
-  "numpy_version": "2.2.6",
-  "numpy_available": true
-}
-```
-
----
-
-### **3. Score API (Main Feature)**
+### Grammar Scoring API
 
 ```
 POST /score/
 ```
 
-#### **Request:**
+Upload form field:
 
-Upload audio file (`wav/mp3/m4a/ogg/flac`).
+* `file`: audio file (.wav, .mp3, .m4a, .flac, .ogg)
 
-#### **Response:**
+Sample response:
 
 ```json
 {
-  "filename": "input.wav",
-  "asr_text": "I am speaking something",
-  "corrected_text": "I am saying something.",
-  "wer": 0.14,
-  "grammar_score_0_100": 86
+  "filename": "audio.wav",
+  "asr_text": "this is a example",
+  "corrected_text": "This is an example.",
+  "wer": 0.18,
+  "grammar_score_0_100": 82
 }
 ```
 
 ---
 
-## 🧠 **How It Works Internally**
+## 8. Test the API
 
-### **1. ASR (Audio → Text)**
+### Using test script
 
-```python
-asr_pipeline = pipeline("automatic-speech-recognition", model=HF_ASR_MODEL)
+```bash
+python scripts/test_api.py
 ```
 
-### **2. Grammar Correction**
+### Using curl (Linux/macOS)
 
-```python
-corrected = grammar_pipeline(text)[0]['generated_text']
+```bash
+curl -X POST -F "file=@data/kaggle_audio/sample.wav" http://127.0.0.1:8000/score/
 ```
 
-### **3. Grammar Score**
+### PowerShell
 
-WER is computed:
-
-```
-score = (1 - wer) * 100
+```powershell
+Invoke-WebRequest -Method POST -InFile "data/kaggle_audio/sample.wav" `
+  -Uri "http://127.0.0.1:8000/score/" -ContentType "audio/wav"
 ```
 
 ---
 
-## ❗ Common Issues
+## 9. Batch Processing (Kaggle Dataset)
 
-### **Issue: "Numpy is not available"**
+Run:
 
-Fix:
-
-```sh
-pip install --upgrade --force-reinstall numpy --only-binary=:all:
+```bash
+python scripts/batch_process.py
 ```
 
-Check environment:
+Output is saved in:
 
-```sh
-curl http://127.0.0.1:8000/debug
 ```
-
-### **Whisper model slow or crashing?**
-
-Install PyTorch with CUDA (if GPU available).
+data/scored_results.csv
+```
 
 ---
+
+## 10. Troubleshooting
+
+### FFmpeg missing
+
+Install FFmpeg:
+
+Windows:
+
+```
+choco install ffmpeg
+```
+
+Ubuntu:
+
+```
+sudo apt install ffmpeg
+```
+
+macOS:
+
+```
+brew install ffmpeg
+```
+
+### Torch not installed
+
+```
+pip install torch --index-url https://download.pytorch.org/whl/cu121
+```
+
+### Whisper model too slow
+
+Swap to a smaller model:
+
+* `openai/whisper-tiny`
+* `openai/whisper-base`
+* `distil-whisper/distil-small.en`
+
+---
+
+## 11. Notes
+
+* This project uses free Hugging Face models.
+* No API key required.
+* Works offline once models are downloaded.
 
 ## 📄 **License**
 
