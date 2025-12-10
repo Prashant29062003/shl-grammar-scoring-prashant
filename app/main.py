@@ -10,6 +10,21 @@ app = FastAPI(title="Grammar Scoring Engine (HF Inference)")
 def health():
     return {"status": "ok"}
 
+@app.get("/debug")
+def debug():
+    import sys
+    try:
+        import numpy
+        numpy_status = True
+    except:
+        numpy_status = False
+
+    return {
+        "python": sys.executable,
+        "numpy_available": numpy_status,
+        "numpy_version": numpy.__version__ if numpy_status else "N/A"
+    }
+
 @app.post("/score/")
 async def score_endpoint(file: UploadFile = File(...)):
     if not file.filename.lower().endswith((".wav", ".mp3", ".m4a", ".flac", ".ogg")):
