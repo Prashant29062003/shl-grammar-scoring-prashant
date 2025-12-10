@@ -212,3 +212,4 @@ Install PyTorch with CUDA (if GPU available).
 
 ## 📄 **License**
 
+Copyright (c) 2025 Prashant Kumar
